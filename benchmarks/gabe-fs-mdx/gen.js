@@ -1,17 +1,23 @@
 const fs = require('fs');
-const path = require('path')
-const faker = require(`faker`)
+const path = require('path');
+const faker = require('faker');
 
 const N = parseInt(process.env.N, 10) || 100;
+const ARTICLES_DIR = './generated_articles';
 
-let n = 0;
+// Helper function to escape double quotes in a string
+function escapeQuotes(str) {
+  return str.replace(/"/g, '\\"');
+}
+
+// Function to create an article's content
 function createArticle(n, sentence, slug) {
   const desc = faker.lorem.sentence();
 
   return `---
 articleNumber: ${n}
-title: "${sentence.replace(/"/g, '\\"')}"
-description: "${desc.replace(/"/g, '\\"')}"
+title: "${escapeQuotes(sentence)}"
+description: "${escapeQuotes(desc)}"
 path: '${slug}'
 date: ${faker.date.recent(1000).toISOString().slice(0, 10)}
 ---
@@ -30,20 +36,33 @@ ${faker.lorem.paragraphs(2)}
   `;
 }
 
-console.log('Start of gen')
+// Function to generate articles
+function generateArticles(count) {
+  console.log('Start of generation');
+  
+  if (!fs.existsSync(ARTICLES_DIR)) {
+    fs.mkdirSync(ARTICLES_DIR, { recursive: true });
+  } else {
+    const existingFiles = fs.readdirSync(ARTICLES_DIR).length;
+    if (existingFiles >= count) {
+      console.log(`Directory already contains ${existingFiles} files. No new files generated.`);
+      return;
+    }
+  }
 
-if (fs.existsSync('./generated_articles')) {
-  TODO // count existing folders. If they are less than given number, just amend to them. Otherwise abort and require a rimraf
-} else {
-  fs.mkdirSync('./generated_articles', {recursive: true});
+  console.log(`Generating ${count} articles...`);
+  for (let i = 0; i < count; ++i) {
+    const sentence = faker.lorem.sentence();
+    const slug = faker.helpers.slugify(sentence).toLowerCase();
+    const articlePath = path.join(ARTICLES_DIR, `${slug}.mdx`);
+    
+    // Write article to file
+    fs.writeFileSync(articlePath, createArticle(i, sentence, slug));
+  }
+
+  console.log(`Finished generating ${count} articles.`);
 }
 
-console.log('Now generating ' + N + ' articles');
-for (let i=0; i<N; ++i) {
-  const sentence = faker.lorem.sentence();
-  const slug = faker.helpers.slugify(sentence).toLowerCase();
-  fs.writeFileSync(path.join('./generated_articles', slug + '.mdx'), createArticle(i, sentence, slug))
-}
-console.log('Finished generating ' + N + ' articles');
-console.log('End of gen')
-
+// Execute the generation process
+generateArticles(N);
+console.log('End of generation');
